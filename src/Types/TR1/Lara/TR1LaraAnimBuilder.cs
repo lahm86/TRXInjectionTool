@@ -1,4 +1,8 @@
-﻿using TRLevelControl.Helpers;
+﻿using System.Drawing;
+using TRImageControl;
+using TRImageControl.Packing;
+using TRLevelControl;
+using TRLevelControl.Helpers;
 using TRLevelControl.Model;
 using TRXInjectionTool.Control;
 
@@ -32,6 +36,9 @@ public class TR1LaraAnimBuilder : InjectionBuilder
         SwimToHuddle = 181,
         SwimToSprawl = 182,
         SwimToMedium = 183,
+        FlareThrow = 184,
+        FlarePickup = 185,
+        FlareUWPickup = 186,
     };
 
     enum InjState : int
@@ -40,6 +47,7 @@ public class TR1LaraAnimBuilder : InjectionBuilder
         UWRoll = 58,
         Wade = 59,
         Responsive = 60,
+        FlarePickup = 61,
     };
 
     public override List<InjectionData> Build()
@@ -50,6 +58,8 @@ public class TR1LaraAnimBuilder : InjectionBuilder
         TR2Level wall = _control2.Read($"Resources/{TR2LevelNames.GW}");
         ResetLevel(caves);
 
+        CreateModelLevel(caves, TR1Type.Lara);
+
         TRModel tr1Lara = caves.Models[TR1Type.Lara];
         TRModel tr2Lara = wall.Models[TR2Type.Lara];
         ImportTR2Jumping(tr1Lara, tr2Lara);
@@ -58,9 +68,13 @@ public class TR1LaraAnimBuilder : InjectionBuilder
         ImportWading(tr1Lara, tr2Lara);
         ImportWetFeet(tr1Lara, caves);
         ImportTR2Gliding(tr1Lara, tr2Lara);
+        ImportFlares(caves, wall);
+        // TODO: flare SFX
 
         // This can be opened in WADTool for debugging what ends up in the game itself.
         _control1.Write(caves, "Output/ExtendedLaraAnims.phd");
+        // Remove unnecessary texture data we don't want in the injection.
+        StreamlineTextures(caves, wall);
 
         InjectionData data = InjectionData.Create(caves, InjectionType.LaraAnims, "lara_animations");
         dataGroup.Add(data);
@@ -666,6 +680,228 @@ public class TR1LaraAnimBuilder : InjectionBuilder
 
         // Not essential, but easier to read in WADTool
         responsiveGlideChange.Dispatches.Sort((d1, d2) => d1.Low.CompareTo(d2.Low));
+    }
+
+    private static void ImportFlares(TR1Level caves, TR2Level wall)
+    {
+        TRModel tr1Lara = caves.Models[TR1Type.Lara];
+        TRModel tr2Lara = wall.Models[TR2Type.Lara];
+
+        Dictionary<int, InjAnim> map = new()
+        {
+            [189] = InjAnim.FlareThrow,
+            [204] = InjAnim.FlarePickup,
+            [206] = InjAnim.FlareUWPickup,
+        };
+
+        foreach (int tr2Idx in map.Keys)
+        {
+            TRAnimation anim = tr2Lara.Animations[tr2Idx];
+            tr1Lara.Animations.Add(anim);
+            if (map.ContainsKey(anim.NextAnimation))
+            {
+                anim.NextAnimation = (ushort)map[anim.NextAnimation];
+            }
+            if (anim.StateID == 67)
+            {
+                anim.StateID = (ushort)InjState.FlarePickup;
+            }
+        }
+
+        caves.Models[TR1Type.Missile4_U] = wall.Models[TR2Type.LaraFlareAnim_H].Clone();
+        for (int i = 0; i < tr1Lara.Meshes.Count; i++)
+        {
+            if (i == 13)
+            {
+                TRMesh tr1FlareHand = tr1Lara.Meshes[13].Clone();
+                TRMesh tr2FlareHand = wall.Models[TR2Type.LaraFlareAnim_H].Meshes[13];
+                caves.Models[TR1Type.Missile4_U].Meshes[i] = tr1FlareHand;
+
+                tr1FlareHand.Normals.AddRange(tr2FlareHand.Normals.GetRange(8, 8));
+                tr1FlareHand.Vertices.AddRange(tr2FlareHand.Vertices.GetRange(8, 8));
+
+                List<TRMeshFace> faces = tr2FlareHand.TexturedRectangles
+                    .Where(f => f.Vertices.All(v => v >= 8 && v <= 15))
+                    .Select(f => f.Clone())
+                    .ToList();
+
+                TR1TexturePacker packer1 = new(caves);
+                TR2TexturePacker packer2 = new(wall);
+                TRTextileRegion region = packer2.GetObjectRegions(faces[0].Texture).Values.First().First();
+                packer1.AddRectangle(region);
+                packer1.Pack(true);
+
+                caves.ObjectTextures.Add(region.Segments[0].Texture as TRObjectTexture);
+                faces.ForEach(f => f.Texture = (ushort)(caves.ObjectTextures.Count - 1));
+
+                tr1FlareHand.TexturedRectangles.AddRange(faces);
+            }
+            else
+            {
+                // Everything else is a dummy mesh
+                caves.Models[TR1Type.Missile4_U].Meshes[i] = tr1Lara.Meshes[0];
+            }
+        }
+
+        {
+            PackTextures(caves, wall, wall.Models[TR2Type.Flares_M_H], new());
+            PackTextures(caves, wall, wall.Models[TR2Type.Flare_H], new());
+            PackTextures(caves, wall, wall.Models[TR2Type.FlareSparks_S_H], new());
+
+            TR1TexturePacker packer1 = new(caves);
+            TR2TexturePacker packer2 = new(wall);
+            packer1.AddRectangle(packer2.GetSpriteRegions(wall.Sprites[TR2Type.Flares_S_P]).Values.First().First());
+            packer1.Pack(true);
+
+            int maxPal = Math.Max(caves.Images8.SelectMany(i => i.Pixels.Distinct()).Max(), 
+                caves.DistinctMeshes.SelectMany(m => m.ColouredFaces.Select(f => f.Texture)).Max());
+
+            List<Color> palette = new(caves.Palette.GetRange(0, maxPal + 1).Select(c => c.ToTR1Color()))
+            {
+                [0] = Color.Magenta // Don't use idx 0, assume nothing is ever magenta
+            };
+
+            foreach (TRMeshFace face in wall.Models[TR2Type.Flares_M_H].Meshes.SelectMany(m => m.ColouredFaces))
+            {
+                Color c = wall.Palette16[face.Texture >> 8].ToColor();
+                if (!palette.Contains(c))
+                {
+                    palette.Add(c);
+                }
+                face.Texture = (ushort)palette.IndexOf(c);
+            }
+
+            palette[0] = Color.Black;
+            while (palette.Count < 256)
+            {
+                palette.Add(Color.Black);
+            }
+
+            caves.Palette = palette.Select(c => c.ToTRColour()).ToList();
+
+            caves.Sprites[TR1Type.Unused02] = wall.Sprites[TR2Type.Flares_S_P];
+            caves.Models[TR1Type.Unused03] = wall.Models[TR2Type.Flares_M_H];
+            caves.Models[TR1Type.Unused04] = wall.Models[TR2Type.Flare_H];
+            caves.Models[TR1Type.Unused05] = wall.Models[TR2Type.FlareSparks_S_H];
+        }
+
+        {
+            // The flares box is 12 units off the "ground" so sort that out.
+            foreach (TRAnimFrame frame in caves.Models[TR1Type.Unused03].Animations[0].Frames)
+            {
+                frame.OffsetY += 12;
+                frame.Bounds.MinY += 12;
+                frame.Bounds.MaxY += 12;
+            }
+        }
+    }
+
+    private static void StreamlineTextures(TR1Level caves, TR2Level wall)
+    {
+        TRModel tr1Lara = caves.Models[TR1Type.Lara];
+        TRModel laraFlare = caves.Models[TR1Type.Missile4_U];
+        TRMesh flareHand = laraFlare.Meshes[13];
+
+        // Point everything we don't need to the dummy mesh, which will only reference the
+        // first used texture in the flare hand.
+        for (int i = 1; i < 15; i++)
+        {
+            tr1Lara.Meshes[i] = tr1Lara.Meshes[0];
+        }
+        foreach (TRMeshFace face in tr1Lara.Meshes[0].ColouredFaces.Concat(tr1Lara.Meshes[0].TexturedFaces))
+        {
+            face.Texture = flareHand.TexturedFaces.First().Texture;
+        }
+
+        // Cache everything else in use.
+        Dictionary<int, TRObjectTexture> usedTextures = new();
+        foreach (int i in caves.DistinctMeshes.SelectMany(m => m.TexturedFaces).Select(f => f.Texture))
+        {
+            usedTextures[i] = caves.ObjectTextures[i];
+        }
+
+        Dictionary<int, Color> usedColours = new();
+        foreach (int i in caves.DistinctMeshes.SelectMany(m => m.ColouredFaces).Select(f => f.Texture))
+        {
+            usedColours[i] = caves.Palette[i].ToTR1Color();
+        }
+
+        caves.ObjectTextures.Clear();
+        caves.ObjectTextures.AddRange(usedTextures.Values);
+
+        foreach (TRMeshFace face in caves.DistinctMeshes.SelectMany(m => m.TexturedFaces))
+        {
+            face.Texture = (ushort)caves.ObjectTextures.IndexOf(usedTextures[face.Texture]);
+        }
+
+        // We need every other model's textures.
+        TRSpriteSequence flareSprite = wall.Sprites[TR2Type.Flares_S_P];
+        TRModel flaresOption = wall.Models[TR2Type.Flares_M_H];
+        TRModel flare = wall.Models[TR2Type.Flare_H];
+        TRModel flareSparks = wall.Models[TR2Type.FlareSparks_S_H];
+
+        List<TRMesh> meshes = new()
+        {
+            flareHand
+        };
+        meshes.AddRange(caves.Models[TR1Type.Unused03].Meshes);
+        meshes.AddRange(caves.Models[TR1Type.Unused04].Meshes);
+        meshes.AddRange(caves.Models[TR1Type.Unused05].Meshes);
+
+        // Rebuild the texture pages.
+        TR1TexturePacker packer = new(caves);
+        List<TRTextileRegion> regions = new();
+        regions.AddRange(packer.GetMeshRegions(meshes).Values.SelectMany(r => r));
+        regions.AddRange(packer.GetSpriteRegions(flareSprite).Values.First());
+
+        caves.Images8 = new()
+        {
+            new() { Pixels = new byte[TRConsts.TPageSize] },
+        };
+        caves.Models.Clear();
+        caves.Sprites.Clear();
+
+        packer = new(caves);
+        packer.AddRectangles(regions);
+        packer.Pack(true);
+
+        caves.Models[TR1Type.Lara] = tr1Lara;
+        caves.Models[TR1Type.Missile4_U] = laraFlare;
+        caves.Sprites[TR1Type.Unused02] = flareSprite;
+        caves.Models[TR1Type.Unused03] = flaresOption;
+        caves.Models[TR1Type.Unused04] = flare;
+        caves.Models[TR1Type.Unused05] = flareSparks;
+
+        ResetPalette(caves, usedColours);
+
+        _control1.Write(caves, "Output/ExtendedLaraAnims_min.phd");
+    }
+
+    private static void ResetPalette(TR1Level caves, Dictionary<int, Color> usedColours)
+    {
+        int maxPal = caves.Images8.SelectMany(i => i.Pixels.Distinct()).Max();
+        List<Color> palette = new(caves.Palette.GetRange(0, maxPal + 1).Select(c => c.ToTR1Color()))
+        {
+            [0] = Color.Magenta // Don't use idx 0, assume nothing is ever magenta
+        };
+
+        foreach (TRMeshFace face in caves.DistinctMeshes.SelectMany(m => m.ColouredFaces))
+        {
+            Color c = usedColours[face.Texture];
+            if (!palette.Contains(c))
+            {
+                palette.Add(c);
+            }
+            face.Texture = (ushort)palette.IndexOf(c);
+        }
+
+        palette[0] = Color.Black;
+        while (palette.Count < 256)
+        {
+            palette.Add(Color.Black);
+        }
+
+        caves.Palette = palette.Select(c => c.ToTRColour()).ToList();
     }
 
     static void ResetLevel(TR1Level level)

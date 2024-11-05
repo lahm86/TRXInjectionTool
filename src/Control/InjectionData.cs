@@ -135,27 +135,7 @@ public class InjectionData
 
     private static void ResetLaraLevel(TRLevel level)
     {
-        level.NumMeshData = 0;
-        level.Meshes = Array.Empty<TRMesh>();
-        level.NumMeshPointers = 0;
-        level.MeshPointers = Array.Empty<uint>();
-        level.NumMeshTrees = 0;
-        level.MeshTrees = Array.Empty<TRMeshTreeNode>();
-        level.Images8 = Array.Empty<TRTexImage8>();
-        level.NumImages = 0;
-        level.ObjectTextures = Array.Empty<TRObjectTexture>();
-        level.NumObjectTextures = 0;
-        for (int i = 0; i < 256; i++)
-        {
-            TRColour c = level.Palette[i];
-            c.Red = c.Green = c.Blue = 0;
-        }
-        level.NumMeshData = 0;
-        level.Meshes = Array.Empty<TRMesh>();
-        level.NumMeshPointers = 0;
-        level.MeshPointers = Array.Empty<uint>();
-        level.NumMeshTrees = 0;
-        level.MeshTrees = Array.Empty<TRMeshTreeNode>();
+        // This ensures the engine retains Lara's original meshes
         level.Models[0].MeshTree = 0;
         level.Models[0].StartingMesh = 0;
         level.Models[0].NumMeshes = 0;
