@@ -10,16 +10,33 @@ namespace TRXInjectionTool.Types.TR1.Misc;
 
 public class TR1FontBuilder : InjectionBuilder
 {
-    private readonly List<GlyphDef> _glyphDefs;
+    private static readonly Dictionary<TR1Type, string> _data = new()
+    {
+        [TR1Type.FontGraphics_S_H] = "Resources/TR1/Font/font_glyph_info.json",
+        [TR1Type.Unused03] = "Resources/TR1/Font/frame_glyph_info.json",
+    };
+
+    private readonly List<BuildData> _buildData;
     private readonly Dictionary<string, TRImage> _imageCache;
 
     public override string ID => "font";
 
     public TR1FontBuilder()
     {
-        _glyphDefs = DeserializeFile<List<GlyphDef>>("Resources/TR1/Font/glyph_info.json");
-        _glyphDefs.Sort((g1, g2) => g1.mesh_num.CompareTo(g2.mesh_num));
+        _buildData = new();
         _imageCache = new();
+
+        foreach (var (type, srcPath) in _data)
+        {
+            BuildData data = new()
+            {
+                ID = type,
+                Glyphs = DeserializeFile<List<GlyphDef>>(srcPath),
+                Sequence = new(),
+            };
+            data.Glyphs.Sort((g1, g2) => g1.mesh_num.CompareTo(g2.mesh_num));
+            _buildData.Add(data);
+        }
     }
 
     public TRImage GetImage(GlyphDef glyph)
@@ -33,7 +50,7 @@ public class TR1FontBuilder : InjectionBuilder
         TRImage image = _imageCache[path];
         if (!_imageCache.ContainsKey(glyph.filename))
         {
-            _imageCache[glyph.filename] = new(glyph.filename);
+            _imageCache[glyph.filename] = image;
         }
 
         Rectangle bounds = new(glyph.x, glyph.y, glyph.w, glyph.h);
@@ -42,52 +59,60 @@ public class TR1FontBuilder : InjectionBuilder
 
     public override List<InjectionData> Build()
     {
-        TR1Level caves = _control1.Read($"Resources/{TR1LevelNames.CAVES}");
-
-        TRSpriteSequence font = new();
-        List<TRTextileRegion> regions = new();
-
-        foreach (GlyphDef glyph in _glyphDefs)
+        List<InjectionData> result = new();
+        foreach (BuildData buildData in _buildData)
         {
-            TRSpriteTexture texture = new()
-            {
-                Bounds = new(glyph.x, glyph.y, glyph.w, glyph.h),
-                Alignment = new()
-                {
-                    Left = glyph.l,
-                    Top = glyph.t,
-                    Right = glyph.r,
-                    Bottom = glyph.b,
-                },
-            };
+            TR1Level caves = _control1.Read($"Resources/{TR1LevelNames.CAVES}");
+            ResetLevel(caves, 1);
+            List<TRTextileRegion> regions = new();
 
-            font.Textures.Add(texture);
-
-            regions.Add(new()
+            foreach (GlyphDef glyph in buildData.Glyphs)
             {
-                Bounds = texture.Bounds,
-                Image = GetImage(glyph),
-                Segments = new()
+                TRSpriteTexture texture = new()
                 {
-                    new()
+                    Bounds = new(glyph.x, glyph.y, glyph.w, glyph.h),
+                    Alignment = new()
                     {
-                        Index = glyph.mesh_num,
-                        Texture = texture,
+                        Left = glyph.l,
+                        Top = glyph.t,
+                        Right = glyph.r,
+                        Bottom = glyph.b,
                     },
-                },
-            });
+                };
+
+                buildData.Sequence.Textures.Add(texture);
+
+                regions.Add(new()
+                {
+                    Bounds = texture.Bounds,
+                    Image = GetImage(glyph),
+                    Segments = new()
+                    {
+                        new()
+                        {
+                            Index = glyph.mesh_num,
+                            Texture = texture,
+                        },
+                    },
+                });
+            }
+
+            TR1TexturePacker packer = new(caves);
+            packer.AddRectangles(regions);
+            packer.Pack(true);
+
+            caves.Sprites[buildData.ID] = buildData.Sequence;
+            _control1.Write(caves, MakeOutputPath(TRGameVersion.TR1, $"Debug/{ID}.phd"));
+            result.Add(InjectionData.Create(caves, InjectionType.General, buildData.ID.ToString())); // TODO: fix output name
         }
 
-        ResetLevel(caves, 1);
-        TR1TexturePacker packer = new(caves);
-        packer.AddRectangles(regions);
-        packer.Pack(true);
+        return result;
+    }
 
-        caves.Sprites[TR1Type.FontGraphics_S_H] = font;
-
-        _control1.Write(caves, MakeOutputPath(TRGameVersion.TR1, $"Debug/{ID}.phd"));
-
-        InjectionData data = InjectionData.Create(caves, InjectionType.General, ID);
-        return new() { data };
+    private class BuildData
+    {
+        public TR1Type ID { get; set; }
+        public TRSpriteSequence Sequence { get; set; }
+        public List<GlyphDef> Glyphs { get; set; }
     }
 }

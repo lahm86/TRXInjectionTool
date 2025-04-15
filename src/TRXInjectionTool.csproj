@@ -46,7 +46,13 @@
     <None Update="Resources\TR1\Font\alpha_sprites_00.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Resources\TR1\Font\glyph_info.json">
+    <None Update="Resources\TR1\Font\frame_glyph_info.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Resources\TR1\Font\frame_sprites_00.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Resources\TR1\Font\font_glyph_info.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="Resources\TR1\Lara\hair1.png">

@@ -1,0 +1,9 @@
+[{"mesh_num": 0, "filename": "frame_sprites_00.png", "x": 0, "y": 0, "w": 8, "h": 8, "l": -7, "t": -7, "b": 1, "r": 1},
+ {"mesh_num": 1, "filename": "frame_sprites_00.png", "x": 8, "y": 0, "w": 8, "h": 8, "l": 0, "t": -7, "b": 1, "r": 8},
+ {"mesh_num": 2, "filename": "frame_sprites_00.png", "x": 16, "y": 0, "w": 8, "h": 8, "l": 0, "t": 0, "b": 8, "r": 8},
+ {"mesh_num": 3, "filename": "frame_sprites_00.png", "x": 24, "y": 0, "w": 8, "h": 8, "l": -7, "t": 0, "b": 8, "r": 1},
+ {"mesh_num": 4, "filename": "frame_sprites_00.png", "x": 32, "y": 0, "w": 8, "h": 8, "l": 0, "t": -7, "b": 1, "r": 8},
+ {"mesh_num": 5, "filename": "frame_sprites_00.png", "x": 40, "y": 0, "w": 8, "h": 8, "l": 0, "t": 0, "b": 8, "r": 8},
+ {"mesh_num": 6, "filename": "frame_sprites_00.png", "x": 48, "y": 0, "w": 8, "h": 8, "l": 0, "t": 0, "b": 8, "r": 8},
+ {"mesh_num": 7, "filename": "frame_sprites_00.png", "x": 56, "y": 0, "w": 8, "h": 8, "l": -7, "t": 0, "b": 8, "r": 1}
+]
