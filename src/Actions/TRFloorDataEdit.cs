@@ -30,6 +30,7 @@ public enum FDFixType
     TrigItem,
     RoomProperties,
     TrigType,
+    SectorOverwrite,
 }
 
 public abstract class FDFix
@@ -131,5 +132,42 @@ public class FDRoomProperties : FDFix
     protected override void SerializeImpl(TRLevelWriter writer, TRGameVersion version)
     {
         writer.Write((ushort)Flags);
+    }
+}
+
+public class FDSectorOverwrite : FDFix
+{
+    public override FDFixType FixType => FDFixType.SectorOverwrite;
+    public TRRoomSectorExt Sector { get; set; }
+
+    protected override void SerializeImpl(TRLevelWriter writer, TRGameVersion version)
+    {
+        writer.Write(Sector.FDIndex);
+        writer.Write(Sector.BoxIndex);
+        writer.Write(Sector.RoomBelow);
+        writer.Write(Sector.Floor);
+        writer.Write(Sector.RoomAbove);
+        writer.Write(Sector.Ceiling);
+    }
+}
+
+public class TRRoomSectorExt : TRRoomSector
+{
+    public new short Ceiling { get; set; }
+    public new short Floor { get; set; }
+    public new short RoomAbove { get; set; }
+    public new short RoomBelow { get; set; }
+
+    public static TRRoomSectorExt CloneFrom(TRRoomSector sector)
+    {
+        return new()
+        {
+            BoxIndex = sector.BoxIndex,
+            FDIndex = sector.FDIndex,
+            Ceiling = (short)(sector.Ceiling * TRConsts.Step1),
+            Floor = (short)(sector.Floor * TRConsts.Step1),
+            RoomAbove = sector.RoomAbove == TRConsts.NoRoom ? (short)-1 : sector.RoomAbove,
+            RoomBelow = sector.RoomBelow == TRConsts.NoRoom ? (short)-1 : sector.RoomBelow,
+        };
     }
 }
