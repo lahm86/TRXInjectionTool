@@ -37,8 +37,8 @@ only has one mesh and no animation data, so if the default injection that ships
 with TRX is not used, the animation will not work correctly. The modified models
 can be downloaded below and added directly to your WAD to allow customisation.
 
-https://lostartefacts.dev/pub/tr1_pda.zip
-https://lostartefacts.dev/pub/tr2_pda.zip
+- https://lostartefacts.dev/pub/tr1_pda.zip
+- https://lostartefacts.dev/pub/tr2_pda.zip
 
 ##  Updating the asset files (internal)
 
