@@ -10,8 +10,8 @@ to use the provided injection file, your modifications will be overwritten. To
 resolve this, you can follow these steps.
 
 1. Download and extract the following zip files.
-https://lostartefacts.dev/pub/tr1-lara-anim-ext.zip
-https://lostartefacts.dev/pub/tr2-lara-anim-ext.zip
+    - https://lostartefacts.dev/pub/tr1-lara-anim-ext.zip
+    - https://lostartefacts.dev/pub/tr2-lara-anim-ext.zip
 
 2. Open your level's WAD file in WadTool.
 
