@@ -20,6 +20,7 @@ public partial class TR1StrongholdTextureBuilder : TextureBuilder
 
         FixMiscRooms(stronghold, data);
         FixPassport(stronghold, data);
+        FixBigPod(data, TR1LevelNames.STRONGHOLD);
 
         return new() { data };
     }
