@@ -77,6 +77,12 @@ public abstract class TextureBuilder : InjectionBuilder
                 .Select(r => type == TRMeshFaceType.TexturedQuad ? r.Mesh.Rectangles : r.Mesh.Triangles)
                 .ToList();
         }
+        else if (level is TR4Level level4)
+        {
+            meshes = level4.Rooms
+                .Select(r => type == TRMeshFaceType.TexturedQuad ? r.Mesh.Rectangles : r.Mesh.Triangles)
+                .ToList();
+        }
         else
         {
             throw new Exception();
@@ -151,6 +157,25 @@ public abstract class TextureBuilder : InjectionBuilder
     }
 
     protected static TRRoomVertexCreate CreateVertex(short roomIdx, TR3Room room, TR3RoomVertex vertex, short lighting = -1, short shift = 256)
+    {
+        room.Mesh.Vertices.Add(vertex.Clone() as TR3RoomVertex);
+        return new()
+        {
+            RoomIndex = roomIdx,
+            Vertex = new()
+            {
+                Lighting = lighting == -1 ? vertex.Lighting : lighting,
+                Vertex = new()
+                {
+                    X = vertex.Vertex.X,
+                    Y = (short)(vertex.Vertex.Y + shift),
+                    Z = vertex.Vertex.Z,
+                },
+            },
+        };
+    }
+
+    protected static TRRoomVertexCreate CreateVertex(short roomIdx, TR4Room room, TR3RoomVertex vertex, short lighting = -1, short shift = 256)
     {
         room.Mesh.Vertices.Add(vertex.Clone() as TR3RoomVertex);
         return new()
