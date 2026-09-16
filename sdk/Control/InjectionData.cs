@@ -1,4 +1,4 @@
-﻿using TRImageControl;
+using TRImageControl;
 using TRLevelControl;
 using TRLevelControl.Model;
 using TRXInjectionTool.Actions;
@@ -119,7 +119,10 @@ public class InjectionData
         {
             for (int i = 0; i < model.Animations.Count; i++)
             {
-                counts.Add(model.Meshes.Count);
+                // The frames themselves carry one rotation per mesh; builders
+                // that ship animations without meshes leave Meshes empty.
+                var frame = model.Animations[i].Frames.FirstOrDefault();
+                counts.Add(frame?.Rotations.Count ?? model.Meshes.Count);
             }
         }
         return counts;
