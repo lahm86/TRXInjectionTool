@@ -13,6 +13,7 @@ public class TR3GymFDBuilder : FDBuilder
         CreateDefaultTests(data, $"TR3/{TR3LevelNames.ASSAULT}");
 
         data.FloorEdits.AddRange(FixZipTriggers());
+        data.FloorEdits.Add(ReplacePuzzleMusicTrigger());
 
         return [data];
     }
@@ -33,5 +34,20 @@ public class TR3GymFDBuilder : FDBuilder
         {
             yield return MakeTrigger(level, 42, 3, z, trigger);
         }
+    }
+
+    private static TRFloorDataEdit ReplacePuzzleMusicTrigger()
+    {
+        // Track 2 in the gym always plays in OG, but this was hard-coded in the engine.
+        // Use a custom flip effect to allow Lua to handle it.
+        var level = _control3.Read($"Resources/TR3/{TR3LevelNames.ASSAULT}");
+        var trigger = GetTrigger(level, 79, 1, 3);
+        trigger.Actions.Clear();
+        trigger.Actions.Add(new()
+        {
+            Action = FDTrigAction.Flipeffect,
+            Parameter = 200,
+        });
+        return MakeTrigger(level, 79, 1, 3, trigger);
     }
 }
